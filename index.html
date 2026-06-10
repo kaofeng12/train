@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>增肌管理系統</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; background: #f4f4f9; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input, select, button { width: 100%; padding: 10px; margin: 5px 0; box-sizing: border-box; }
+        button { background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .log-date { font-weight: bold; margin-top: 20px; color: #333; border-bottom: 2px solid #ccc; display: flex; justify-content: space-between; align-items: center; }
+        .log-item { background: white; padding: 8px; border-radius: 4px; margin: 5px 0; display: flex; justify-content: space-between; align-items: center; }
+        .del-btn { background: #dc3545; color: white; border: none; padding: 2px 8px; cursor: pointer; width: auto; }
+        .copy-btn { background: #007bff; color: white; border: none; padding: 2px 8px; cursor: pointer; width: auto; margin-left: 10px; }
+        .pr-box { background: #e9ecef; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <h2>💪 健身訓練紀錄</h2>
+    <div class="card">
+        <input type="date" id="date">
+        <input type="text" id="part" placeholder="部位 (如: 推)">
+        <input type="text" id="exercise" placeholder="動作名稱 (如: 胸推機)">
+        <input type="number" id="weight" placeholder="重量 (kg)">
+        <input type="number" id="reps" placeholder="次數">
+        <button onclick="saveLog()">儲存今日訓練</button>
+    </div>
+
+    <div id="logList"></div>
+
+    <hr>
+
+    <h3>🏆 器材最大重量管理 (PR)</h3>
+    <div class="card pr-box">
+        <select id="prExercise"></select>
+        <input type="number" id="prWeight" placeholder="最大重量 (kg)">
+        <input type="number" id="prSets" placeholder="組數">
+        <button onclick="savePR()">更新個人最佳</button>
+        <div id="prList"></div>
+    </div>
+
+    <script>
+        let logs = JSON.parse(localStorage.getItem('gymLogs') || '[]');
+        let prs = JSON.parse(localStorage.getItem('gymPRs') || '{}');
+
+        function saveLog() {
+            const log = {
+                id: Date.now(),
+                date: document.getElementById('date').value,
+                part: document.getElementById('part').value,
+                exercise: document.getElementById('exercise').value,
+                weight: document.getElementById('weight').value,
+                reps: document.getElementById('reps').value
+            };
+            logs.unshift(log);
+            localStorage.setItem('gymLogs', JSON.stringify(logs));
+            updateSelect(); render();
+        }
+
+        function deleteLog(id) {
+            logs = logs.filter(l => l.id !== id);
+            localStorage.setItem('gymLogs', JSON.stringify(logs));
+            render();
+        }
+
+        function copyDayLogs(date) {
+            const dayLogs = logs.filter(l => l.date === date);
+            const text = `${date} 訓練內容:\n` + dayLogs.map(l => `${l.part}-${l.exercise}: ${l.weight}kg x ${l.reps}`).join('\n');
+            navigator.clipboard.writeText(text).then(() => alert("已複製當日紀錄到剪貼簿！"));
+        }
+
+        function savePR() {
+            const ex = document.getElementById('prExercise').value;
+            if(!ex) return;
+            prs[ex] = { weight: document.getElementById('prWeight').value, sets: document.getElementById('prSets').value };
+            localStorage.setItem('gymPRs', JSON.stringify(prs));
+            renderPR();
+        }
+
+        function updateSelect() {
+            const select = document.getElementById('prExercise');
+            const exercises = [...new Set(logs.map(l => l.exercise))];
+            select.innerHTML = exercises.map(ex => `<option value="${ex}">${ex}</option>`).join('');
+        }
+
+        function render() {
+            const list = document.getElementById('logList');
+            const grouped = logs.reduce((acc, l) => {
+                (acc[l.date] = acc[l.date] || []).push(l);
+                return acc;
+            }, {});
+            
+            list.innerHTML = Object.keys(grouped).sort().reverse().map(date => `
+                <div class="log-date">
+                    ${date}
+                    <button class="copy-btn" onclick="copyDayLogs('${date}')">複製全日內容</button>
+                </div>
+                ${grouped[date].map(l => `
+                    <div class="log-item">
+                        <span>${l.part} - ${l.exercise}: ${l.weight}kg x ${l.reps}</span>
+                        <button class="del-btn" onclick="deleteLog(${l.id})">刪除</button>
+                    </div>
+                `).join('')}
+            `).join('');
+        }
+
+        function renderPR() {
+            const list = document.getElementById('prList');
+            list.innerHTML = Object.keys(prs).map(ex => `<div>${ex}: ${prs[ex].weight}kg / ${prs[ex].sets}組</div>`).join('');
+        }
+
+        document.getElementById('date').valueAsDate = new Date();
+        updateSelect(); render(); renderPR();
+    </script>
+</body>
+</html>
